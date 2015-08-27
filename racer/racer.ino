@@ -1,5 +1,9 @@
+//import Shapr IR sensor library and motor library located in arduino library folder
 #include <SharpIR.h>
 #include <DualVNH5019MotorShield.h>
+#include "PinChangeInt.h"            // Library for encoders interrupts
+
+//For sensors - pins and other variables
 #define sensor1Pin A0
 #define sensor2Pin A1
 #define sensor3Pin A2
@@ -9,12 +13,27 @@
 #define longRange 20150
 
 
-//Rotary Encoder
-#define motor1_A 11
-#define motor1_B 5
-#define motor2_A 3
-#define motor2_B 13
+//For motors - pins and other variables
+//Motor 1 Encoder Pins
+//Yellow is encoder A, connected to arduino board pin 3
+//White is encoder  B, connected to arduino board pin 5
+#define m1_inA 3
+#define m1_inB 5
 
+//Motor 2 Encoder Pins
+//Yellow is encoder A, connected to arduino board pin 11
+//White is encoder  B, connected to arduino board pin 13
+#define m2_inA 11
+#define m2_inB 13
+
+//For reading encoder values
+//volatile int motor1A=0, motor1B=0, motor2A=0, motor2B=0;
+static int motor1Aold = 0;
+static int motor1Bnew = 0;
+static int motor2Aold = 0;
+static int motor2Bnew = 0;
+
+int count = 0;
 //SharpIR sharpIR1(sensor1Pin,20,93,shortRange);
 DualVNH5019MotorShield md;
 
@@ -34,95 +53,54 @@ void stopIfFault()
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(9600);
+  Serial.begin(115200);
   // pinMode(sensor1Pin,INPUT);
   md.init();
-
-  pinMode(motor1_A, INPUT);
-  pinMode(motor1_B, INPUT);
-  pinMode(motor2_A, INPUT);
-  pinMode(motor2_B, INPUT);
-
-  digitalWrite(motor1_A, HIGH);
-  digitalWrite(motor1_B, HIGH);
-  digitalWrite(motor2_A, HIGH);
-  digitalWrite(motor2_B, HIGH);
-
+  //Setting up of motors encoder pins
+  pinMode(m1_inA, INPUT);
+  pinMode(m1_inB, INPUT);
+  pinMode(m2_inA, INPUT);
+  pinMode(m2_inB, INPUT);
+  digitalWrite(m1_inA, HIGH);
+  digitalWrite(m1_inB, HIGH);
+  digitalWrite(m2_inA, HIGH);
+  digitalWrite(m2_inB, HIGH);
   
+  PCintPort::attachInterrupt(m1_inA, notifyOnChangeM1A, CHANGE);  // attachInterrupt(interrupt pin, ISR, mode)
+  PCintPort::attachInterrupt(m1_inB, notifyOnChangeM1B, CHANGE);
+  PCintPort::attachInterrupt(m2_inA, notifyOnChangeM2A, CHANGE);
+  PCintPort::attachInterrupt(m2_inB, notifyOnChangeM2B, CHANGE);
+  Serial.println("Motor Starts!");
 }
 
 
 void loop() {
-  //For Sensor Reading
-
-
-  //  unsigned long startTime=millis();  // takes the time before the loop on the library begins (to be removed later)
-  // //Sensor 1 Reading
-  //  int dis=sharpIR1.distance();  // this returns the distance to the object you're measuring
-  //
-  //  Serial.print("Mean distance: ");  // returns it to the serial monitor
-  //  Serial.println(dis);
-  //
-  //  unsigned long endTime=millis()-startTime;  // the following gives you the time taken to get the measurement
-  //  Serial.print("Time taken (ms): ");
-  //  Serial.println(endTime);
-
-
-  /* Rpi bluetooth to arduino */
-  int index = 0;
-  if (Serial.available())
-  {
-    char message[10] = {Serial.read()};
-
-    switch (message[0])
-    {
-      //turn left
-      case 'l':
-        left();
-        break;
-
-      //turn right
-      case 'r':
-        right();
-        break;
-
-      //move forward
-      case 'f':
-        forward();
-        break;
-
-      //move backwards
-      case 'b':
-        back();
-        break;
-
-      //do nothing
-      default:
-        break;
-    }
-  }
-
-  //delay(10000);
-  //md.setM1Speed(250);
-  //forward();
-
-  
-  Serial.print("M1 A: ");
-  Serial.println(analogRead(motor1_A));
-  Serial.print("M2 A: ");
-  Serial.println(analogRead(motor2_A));
-
-  md.setM1Speed(209);
-  md.setM2Speed(207);
-  
-  delay(1000);
-
-  md.setM1Brake(400);
-  md.setM2Brake(400);
-
-  delay(1000);
+    md.setM1Speed(300);
 }
 
+
+// Motor Encoder Pin Interrupt Functions
+// Assume pattern is 00 01 11 10
+// Increase counter when both pins are different
+
+void notifyOnChangeM1A(){
+  motor1Aold = digitalRead(m1_inA);
+  Serial.print("A : ");
+  Serial.println(motor1Aold);
+}
+
+void notifyOnChangeM1B(){
+   motor1Bnew = digitalRead(m1_inB);
+  Serial.print("B : ");
+  Serial.println(motor1Bnew);
+}
+
+void notifyOnChangeM2A(){
+}
+
+void notifyOnChangeM2B(){
+
+}
 void left() {
   md.setM1Speed(250);
   md.setM2Speed(50);
@@ -156,3 +134,39 @@ void back()
   md.setM1Speed(0);
   md.setM2Speed(0);
 }
+
+void communicateWithPi(){
+    /* Rpi bluetooth to arduino */
+  int index = 0;
+  if (Serial.available())
+  {
+    char message[10] = {Serial.read()};
+
+    switch (message[0])
+    {
+      //turn left
+      case 'l':
+        left();
+        break;
+
+      //turn right
+      case 'r':
+        right();
+        break;
+
+      //move forward
+      case 'f':
+        forward();
+        break;
+
+      //move backwards
+      case 'b':
+        back();
+        break;
+
+      //do nothing
+      default:
+        break;
+    }
+  }
+  }
